@@ -8,11 +8,27 @@ The process of fashion design requires extensive amount of knowledge in creation
 
 In this paper, we propose a method that disentangles the effects of multiple input conditions in Generative Adversarial Networks (GANs). In particular, we demonstrate our method in controlling color, texture, and shape of a generated garment image for computer-aided fashion design. To disentangle the effect of input attributes, we customize conditional GANs with consistency loss functions. For more information, check out our paper.
 
-### Usage
+### Dataset Creation
 
-Before running the code, please check `dataset_tool.py` and `dataset.py` files and make sure that you modify them for your purposes. Creating and loading the dataset will depend on the task. After that, you can adjust the training parameters by modifying the `config.py` file.
+Before running the code, please check `dataset_tool.py` and `dataset.py` files and make sure that you modify them for your purposes. Creating and loading the dataset will depend on the task.
 
-After creating your datasets and adjusting your hyperparameters, the training can be performed by running the following code:
+In `dataset_tool.py`, you can check how we created an image dataset along with color labels:
+
+[Loading color labels](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset_tool.py#L616)
+
+[Adding images and labels](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset_tool.py#L622)
+
+In `dataset.py`, you can check how we load our dataset as follows:
+
+[Real images](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset.py#L68)
+
+[Real masks](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset.py#L78)
+
+[Real color labels](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset.py#L89)
+
+### Training
+
+You can adjust the training parameters by modifying the `config.py` file. After that, the training can be performed by running the following code:
 
 ```
 python train.py
