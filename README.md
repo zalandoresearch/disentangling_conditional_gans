@@ -1,6 +1,6 @@
 # Disentangling Multiple Conditional Inputs in GANs
 
-This is the Tensorflow implementation of our paper [Disentangling Multiple Conditional Inputs in GANs (link coming soon)], which is published in KDD-AI for Fashion Workshop. Our code is tested with Tensorflow 1.8 (Python 3.6). We modified the code from [Progressive Growing of GANs for Improved Quality, Stability, and Variation](https://github.com/tkarras/progressive_growing_of_gans) and used it without progressive growing.
+This is the Tensorflow implementation of our paper [Disentangling Multiple Conditional Inputs in GANs](https://arxiv.org/abs/1806.07819), which is published in KDD-AI for Fashion Workshop. Our code is tested with Tensorflow 1.8 (Python 3.6). We modified the code from [Progressive Growing of GANs for Improved Quality, Stability, and Variation](https://github.com/tkarras/progressive_growing_of_gans) and used it without progressive growing.
 
 ## Overview
 
