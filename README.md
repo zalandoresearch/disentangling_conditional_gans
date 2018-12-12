@@ -10,23 +10,27 @@ In this paper, we propose a method that disentangles the effects of multiple inp
 
 <p align="center"><img src="examples/flowchart.png" height="400px"></p>
 
-## Dataset Creation
+## The Dataset 
 
-Before running the code, please check `dataset_tool.py` and `dataset.py` files and make sure that you modify them for your purposes. Creating and loading the dataset will depend on the task.
+In our paper, we use the images of the dresses from [Zalando's website](https://www.zalando.de), which we cannot share due to copyright constraints. Instead, we provide a modified version of [the MNIST dataset](http://yann.lecun.com/exdb/mnist/) as a toy dataset. You can find the toy dataset in the following link:
 
-In `dataset_tool.py`, you can check how we created an image dataset along with color labels:
+[Toy Dataset](https://drive.google.com/file/d/10KDuA6TGfO9-P9OIqzgBgHEIl60WgNs5/view?usp=sharing)
 
-[Loading color labels](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset_tool.py#L616)
+Please extract the contents of the "mnist_color_texture_dataset.zip" file into the "dataset" folder. Then run the following command to convert the images, masks, and average color vectors, into a TFRecords file:
 
-[Adding images and labels](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset_tool.py#L622)
+```
+python dataset_tool.py ./dataset ./dataset 128
+```
 
-In `dataset.py`, you can check how we load our dataset as follows:
+This will create a TFRecords file under "./dataset/data.tfrecords".
 
-[Real images](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset.py#L68)
+## Custom Dataset 
 
-[Real masks](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset.py#L78)
+If you would like to use your own dataset, you can put your custom dataset under the "dataset" folder with the same structure as the toy dataset. 
 
-[Real color labels](https://github.com/zalandoresearch/disentangling_conditional_gans/blob/master/dataset.py#L89)
+### Images --> ./images/*.png
+### Masks --> ./masks/*.png
+### Average Colors --> ./average_colors.pkl
 
 ## Training
 
