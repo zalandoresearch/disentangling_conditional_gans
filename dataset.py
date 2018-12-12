@@ -13,20 +13,43 @@ import tfutil
 
 #----------------------------------------------------------------------------
 # Parse individual image from a tfrecords file.
-
 def parse_tfrecord_tf(record):
     features = tf.parse_single_example(record, features={
-        'shape': tf.FixedLenFeature([3], tf.int64),
-        'data': tf.FixedLenFeature([], tf.string)})
-    data = tf.decode_raw(features['data'], tf.uint8)
-    return tf.reshape(data, features['shape'])
+        'image': tf.FixedLenFeature([], tf.string),
+        'mask': tf.FixedLenFeature([], tf.string),
+        'color': tf.FixedLenFeature([], tf.string),
+        'image_shape': tf.FixedLenFeature([3], tf.int64),
+        'mask_shape': tf.FixedLenFeature([3], tf.int64),
+        'color_shape': tf.FixedLenFeature([1], tf.int64),
+        })
+
+    image = tf.decode_raw(features['image'], tf.uint8)
+    mask = tf.decode_raw(features['mask'], tf.uint8)
+    color = tf.decode_raw(features['color'], tf.float32)
+
+    image = tf.reshape(image, features['image_shape'])
+    mask = tf.reshape(mask, features['mask_shape'])
+    color = tf.reshape(color, features['color_shape'])
+
+    return image, color, mask
 
 def parse_tfrecord_np(record):
     ex = tf.train.Example()
     ex.ParseFromString(record)
-    shape = ex.features.feature['shape'].int64_list.value
-    data = ex.features.feature['data'].bytes_list.value[0]
-    return np.fromstring(data, np.uint8).reshape(shape)
+
+    image = ex.features.feature['image'].bytes_list.value[0]
+    mask = ex.features.feature['mask'].bytes_list.value[0]
+    color = ex.features.feature['color'].bytes_list.value[0]
+
+    image_shape = ex.features.feature['image_shape'].int64_list.value
+    mask_shape = ex.features.feature['mask_shape'].int64_list.value
+    color_shape = ex.features.feature['color_shape'].int64_list.value
+
+    image = np.fromstring(image, np.uint8).reshape(image_shape)
+    mask = np.fromstring(mask, np.uint8).reshape(mask_shape)
+    color = np.fromstring(color, np.float32).reshape(color_shape)
+
+    return image, color, mask
 
 #----------------------------------------------------------------------------
 # Dataset class that loads data from tfrecords files.
@@ -71,29 +94,9 @@ class TFRecordDataset:
         for tfr_file in tfr_files:
             tfr_opt = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.NONE)
             for record in tf.python_io.tf_record_iterator(tfr_file, tfr_opt):
-                tfr_shapes.append(parse_tfrecord_np(record).shape)
+                image, color, mask = parse_tfrecord_np(record)
+                tfr_shapes.append(image.shape)
                 break
-
-        # List tfrecords files and inspect their shapes.
-        assert os.path.isdir(self.tfrecord_dir)
-        tfm_files = sorted(glob.glob(os.path.join(self.tfrecord_dir, '*.tfmasks')))
-        assert len(tfm_files) >= 1
-        tfm_shapes = []
-        for tfm_file in tfm_files:
-            tfm_opt = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.NONE)
-            for record in tf.python_io.tf_record_iterator(tfm_file, tfm_opt):
-                tfm_shapes.append(parse_tfrecord_np(record).shape)
-                break
-
-        # Autodetect label filename.
-        if self.label_file is None:
-            guess = sorted(glob.glob(os.path.join(self.tfrecord_dir, '*.labels')))
-            if len(guess):
-                self.label_file = guess[0]
-        elif not os.path.isfile(self.label_file):
-            guess = os.path.join(self.tfrecord_dir, self.label_file)
-            if os.path.isfile(guess):
-                self.label_file = guess
 
         # Determine shape and resolution.
         max_shape = max(tfr_shapes, key=lambda shape: np.prod(shape))
@@ -104,36 +107,19 @@ class TFRecordDataset:
         assert all(shape[0] == max_shape[0] for shape in tfr_shapes)
         assert all(shape[1] == shape[2] for shape in tfr_shapes)
         assert all(shape[1] == self.resolution // (2**lod) for shape, lod in zip(tfr_shapes, tfr_lods))
-        assert all(lod in tfr_lods for lod in range(self.resolution_log2 - 1))
 
-        # Load labels.
-        assert max_label_size == 'full' or max_label_size >= 0
-        self._np_labels = np.zeros([1<<20, 0], dtype=np.float32)
-        if self.label_file is not None and max_label_size != 0:
-            self._np_labels = np.load(self.label_file)
-            assert self._np_labels.ndim == 2
-        if max_label_size != 'full' and self._np_labels.shape[1] > max_label_size:
-            self._np_labels = self._np_labels[:, :max_label_size]
-        self.label_size = self._np_labels.shape[1]
-        self.label_dtype = self._np_labels.dtype.name
+        self.label_size = color.shape[0]
+        self.label_dtype = np.float32
 
         # Build TF expressions.
         with tf.name_scope('Dataset'), tf.device('/cpu:0'):
             self._tf_minibatch_in = tf.placeholder(tf.int64, name='minibatch_in', shape=[])
-            tf_labels_init = tf.zeros(self._np_labels.shape, self._np_labels.dtype)
-            self._tf_labels_var = tf.Variable(tf_labels_init, name='labels_var')
-            tfutil.set_vars({self._tf_labels_var: self._np_labels})
-            self._tf_labels_dataset = tf.data.Dataset.from_tensor_slices(self._tf_labels_var)
-            for tfr_file, tfr_shape, tfm_file, tfm_shape, tfr_lod in zip(tfr_files, tfr_shapes, tfm_files, tfm_shapes, tfr_lods):
+            for tfr_file, tfr_lod, tfr_shape in zip(tfr_files, tfr_lods, tfr_shapes):
                 if tfr_lod < 0:
                     continue
                 dset = tf.data.TFRecordDataset(tfr_file, compression_type='', buffer_size=buffer_mb<<20)
                 dset = dset.map(parse_tfrecord_tf, num_parallel_calls=num_threads)
 
-                dset_mask = tf.data.TFRecordDataset(tfm_file, compression_type='', buffer_size=buffer_mb<<20)
-                dset_mask = dset_mask.map(parse_tfrecord_tf, num_parallel_calls=num_threads)
-
-                dset = tf.data.Dataset.zip((dset, self._tf_labels_dataset, dset_mask))
                 bytes_per_item = np.prod(tfr_shape) * np.dtype(self.dtype).itemsize
                 if shuffle_mb > 0:
                     dset = dset.shuffle(((shuffle_mb << 20) - 1) // bytes_per_item + 1)
