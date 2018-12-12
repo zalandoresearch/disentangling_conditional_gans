@@ -22,7 +22,22 @@ Please extract the contents of the "mnist_color_texture_dataset.zip" file into t
 python dataset_tool.py ./dataset ./dataset 128
 ```
 
-This will create a TFRecords file under "./dataset/data.tfrecords".
+This will create a TFRecords file under "./dataset/data.tfrecords". Here are some example images from this dataset:
+
+<p align="center"><table>
+  <tr><td>Images</td>
+    <td><p align="center"><img src="examples/00000.png" width="50%"></p></td>
+    <td><p align="center"><img src="examples/00001.png" width="50%"></p></td>
+    <td><p align="center"><img src="examples/00002.png" width="50%"></p></td>
+    <td><p align="center"><img src="examples/00003.png" width="50%"></p></td>
+  </tr>
+  <tr><td>Masks</td>
+    <td><p align="center"><img src="examples/00000_m.png" width="50%"></p></td>
+    <td><p align="center"><img src="examples/00001_m.png" width="50%"></p></td>
+    <td><p align="center"><img src="examples/00002_m.png" width="50%"></p></td>
+    <td><p align="center"><img src="examples/00003_m.png" width="50%"></p></td>
+  </tr>
+</table></p>
 
 ## Custom Dataset 
 
