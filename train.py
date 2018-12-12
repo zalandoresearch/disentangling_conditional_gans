@@ -14,6 +14,7 @@ import config
 import tfutil
 import dataset
 import misc
+from PIL import Image
 
 #----------------------------------------------------------------------------
 # Choose the size and contents of the image snapshot grids that are exported
@@ -88,6 +89,21 @@ def process_masks(x):
     with tf.name_scope('ProcessMasks'):
         x = tf.cast(x, tf.float32)
         x = misc.adjust_dynamic_range(x, [0, 255], [-1, 1])
+    return x
+
+#----------------------------------------------------------------------------
+# Just-in-time processing of masks before feeding them to the networks.
+
+def process_colors(x):
+    with tf.name_scope('ProcessColors'):
+        x = misc.adjust_dynamic_range(x, [0, 1], [-1, 1])
+    return x
+
+#----------------------------------------------------------------------------
+# Just-in-time processing of masks before feeding them to the networks.
+
+def process_colors_np(x):
+    x = x * 2.0 - 1.0
     return x
 
 #----------------------------------------------------------------------------
@@ -202,7 +218,7 @@ def train_progressive_gan(
             lod_assign_ops = [tf.assign(G_gpu.find_var('lod'), lod_in), tf.assign(D_gpu.find_var('lod'), lod_in)]
             reals_gpu = process_reals(reals_split[gpu], lod_in, mirror_augment, training_set.dynamic_range, drange_net)
             real_masks_gpu = process_masks(real_masks_split[gpu])
-            labels_gpu = labels_split[gpu]
+            labels_gpu = process_colors(labels_split[gpu])
             with tf.name_scope('G_loss'), tf.control_dependencies(lod_assign_ops):
                 G_loss = tfutil.call_func_by_name(G=G_gpu, D=D_gpu, opt=G_opt, training_set=training_set, minibatch_size=minibatch_split, real_masks=real_masks_gpu, **config.G_loss)
             with tf.name_scope('D_loss'), tf.control_dependencies(lod_assign_ops):
@@ -215,13 +231,17 @@ def train_progressive_gan(
     print('Setting up snapshot image grid...')
     grid_size, grid_reals, grid_labels, grid_latents, grid_masks = setup_snapshot_image_grid(G, training_set, **config.grid)
     sched = TrainingSchedule(total_kimg * 1000, training_set, **config.sched)
-    grid_fakes = Gs.run(grid_latents, grid_labels, process_masks_np(grid_masks), minibatch_size=sched.minibatch//config.num_gpus)
+    grid_fakes = Gs.run(grid_latents, process_colors_np(grid_labels), process_masks_np(grid_masks), minibatch_size=sched.minibatch//config.num_gpus)
+
+    color_rep = np.reshape(process_colors_np(grid_labels), [-1, 3, 1, 1])
+    color_rep = np.tile(color_rep, (1,1,128,128))
 
     print('Setting up result dir...')
     result_subdir = misc.create_result_subdir(config.result_dir, config.desc)
     misc.save_image_grid(grid_reals, os.path.join(result_subdir, 'reals.png'), drange=training_set.dynamic_range, grid_size=grid_size)
     misc.save_image_grid(grid_fakes, os.path.join(result_subdir, 'fakes%06d.png' % 0), drange=drange_net, grid_size=grid_size)
     misc.save_image_grid(process_masks_np(grid_masks), os.path.join(result_subdir, 'real_masks%06d.png' % 0), drange=drange_net, grid_size=grid_size)
+    misc.save_image_grid(color_rep, os.path.join(result_subdir, 'real_colors%06d.png' % 0), drange=drange_net, grid_size=grid_size)
     summary_log = tf.summary.FileWriter(result_subdir)
     if save_tf_graph:
         summary_log.add_graph(tf.get_default_graph())
@@ -280,7 +300,7 @@ def train_progressive_gan(
 
             # Save snapshots.
             if cur_tick % image_snapshot_ticks == 0 or done:
-                grid_fakes = Gs.run(grid_latents, grid_labels, process_masks_np(grid_masks), minibatch_size=sched.minibatch//config.num_gpus)
+                grid_fakes = Gs.run(grid_latents, process_colors_np(grid_labels), process_masks_np(grid_masks), minibatch_size=sched.minibatch//config.num_gpus)
                 misc.save_image_grid(grid_fakes, os.path.join(result_subdir, 'fakes%06d.png' % (cur_nimg // 1000)), drange=drange_net, grid_size=grid_size)
             if cur_tick % network_snapshot_ticks == 0 or done:
                 misc.save_pkl((G, D, Gs), os.path.join(result_subdir, 'network-snapshot-%06d.pkl' % (cur_nimg // 1000)))
