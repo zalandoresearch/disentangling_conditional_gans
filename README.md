@@ -16,7 +16,13 @@ In our paper, we use the images of the dresses from [Zalando's website](https://
 
 [Toy Dataset](https://drive.google.com/file/d/10KDuA6TGfO9-P9OIqzgBgHEIl60WgNs5/view?usp=sharing)
 
-Please extract the contents of the "mnist_color_texture_dataset.zip" file into the "dataset" folder. Then run the following command to convert the images, masks, and average color vectors, into a TFRecords file:
+Please copy the "mnist_color_texture_dataset.zip" file into the main repo folder and then extract the contents as follows (on Linux):
+
+```
+unzip mnist_color_texture_dataset.zip
+```
+
+Then run the following command to convert the images, masks, and average color vectors, into a TFRecords file:
 
 ```
 python dataset_tool.py ./dataset ./dataset 128
